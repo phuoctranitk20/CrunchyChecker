@@ -92,7 +92,7 @@ accounts = read_accounts_from_file('combos.txt')
 total_accounts = len(accounts)
 print("Total accounts imported:", total_accounts)
 
-max_threads = 125  # Adjust the number of threads based on your needs
+max_threads = 25  # Adjust the number of threads based on your needs
 with ThreadPoolExecutor(max_threads) as executor:
     results = executor.map(process_account, accounts)
 
