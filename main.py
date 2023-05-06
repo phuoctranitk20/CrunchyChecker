@@ -58,21 +58,22 @@ def check_account(username, password):
             print(f"Error decoding JSON for username '{username}': {data2.text}")
             return False
 
-            if info["code"] == "ok":
-                # If the account is valid, print premium status and expiration date
-                premium_status = info["data"]["user"]["premium"]
-                expiration_date = info["data"]["expires"]
-                print(f"Premium: {premium_status}, Expiration date: {expiration_date}")
-                return True
-            else:
-                return False
+        if info["code"] == "ok":
+            # If the account is valid, print premium status and expiration date
+            premium_status = info["data"]["user"]["premium"]
+            expiration_date = info["data"]["expires"]
+            print(f"Premium: {premium_status}, Expiration date: {expiration_date}")
+            return True
         else:
             return False
+    else:
+        return False
 
 
 accounts = [
-    ("yasufake", "test"),
-    ("username2", "password2"),
+    ("brunerlayne@gmail.com", "Baseball12$"),
+    ("santosgambasa@gmail.com", "pikachu05"),
+    ("liam.brauer@gmail.com", "50182004"),
     # ... add more accounts here
 ]
 
