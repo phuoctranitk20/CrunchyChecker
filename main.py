@@ -74,7 +74,6 @@ accounts = [
     ("brunerlayne@gmail.com", "Baseball12$"),
     ("santosgambasa@gmail.com", "pikachu05"),
     ("liam.brauer@gmail.com", "50182004"),
-    # ... add more accounts here
 ]
 
 for account in accounts:
