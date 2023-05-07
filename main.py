@@ -2,7 +2,7 @@ import os
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from itertools import cycle
-
+import threading
 import requests
 import json
 import time
@@ -17,6 +17,12 @@ def update_title(name, cpm, proxies_count, accounts_count):
         print(title)  # If running in an IDE, print the title
     else:
         os.system(f"title {title}")  # If running in the command prompt, set the window title
+def update_title_every_n_seconds(n, start_time, proxies, accounts):
+    while True:
+        time.sleep(n)  # Update the title every n seconds
+        cpm = calculate_cpm(start_time, checks_done)
+        update_title("Crunchy", cpm, len(proxies), len(accounts))
+
 
 def calculate_cpm(start_time, checks_done):
     elapsed_time = time.time() - start_time
@@ -159,29 +165,44 @@ account_proxy_pairs = [(account, next(proxy_cycle)) for account in accounts]
 total_accounts = len(accounts)
 print("Total accounts imported:", total_accounts)
 
+update_title("Crunchy", 0, len(proxies), len(accounts))
+
 proxies = read_proxies_from_file('proxies.txt')
 account_proxy_tuples = [(account, proxies[i % len(proxies)]) for i, account in enumerate(accounts)]
 
 max_threads = 350  # Adjust the number of threads based on your needs
 start_time = time.time()
 
-with ThreadPoolExecutor(max_threads) as executor:
-    results = executor.map(process_account, account_proxy_tuples)
+title_updater_thread = threading.Thread(target=update_title_every_n_seconds, args=(1, start_time, proxies, accounts))
+title_updater_thread.daemon = True
+title_updater_thread.start()
 
-for result in results:
-    if result is None:
-        continue
+# Start a new thread to update the title every 3 seconds
+title_updater_thread = threading.Thread(target=update_title_every_n_seconds, args=(1, start_time, proxies, accounts))
+title_updater_thread.daemon = True
+title_updater_thread.start()
 
-    username, password, is_premium = result
+try:
+    with ThreadPoolExecutor(max_threads) as executor:
+        results = executor.map(process_account, account_proxy_tuples)
 
-    if is_premium:
-        print(f"{username}:{password}:Premium")
-        save_to_file("premium.txt", f"{username}:{password}:Premium")
-    else:
-        print(f"{username}:{password}:Free")
-        save_to_file("free.txt", f"{username}:{password}:Free")
+    for result in results:
+        if result is None:
+            continue
 
-while True:
-    time.sleep(3)  # Update the title every 3 seconds
-    cpm = calculate_cpm(start_time, checks_done)
-    update_title("Crunchy", cpm, len(proxies), len(accounts))
+        username, password, is_premium = result
+
+        if is_premium:
+            print(f"{username}:{password}:Premium")
+            save_to_file("premium.txt", f"{username}:{password}:Premium")
+        else:
+            print(f"{username}:{password}:Free")
+            save_to_file("free.txt", f"{username}:{password}:Free")
+
+    print("Successfully checked: " + str(total_accounts))
+
+except Exception as e:
+    print(f"An error occurred: {e}")
+
+
+
